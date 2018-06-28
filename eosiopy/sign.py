@@ -4,9 +4,12 @@ from ctypes import *
 
 import base58
 import pkg_resources
-import uECC
+from ecdsa import SigningKey, SECP256k1
+
 from eosiopy.exception import CantFindRecId
 from eosiopy.exception import IllegalKey
+
+
 
 
 def get_private_ket_by_wif(wif):
@@ -19,57 +22,40 @@ def get_private_ket_by_wif(wif):
 
 def sign(wfi, trx):
     pri = get_private_ket_by_wif(wfi)
-    sha = hashlib.sha256(trx)
-    # c=base64.b64encode(pri)
 
-    trx = sha.digest()
     pri = bytes(pri)
-    ll = ctypes.cdll.LoadLibrary
-    print(uECC_rmd160)
-    try:
-        libuecc = pkg_resources.resource_filename(__name__, "uECC_rma160.so")
-    except:
-        libuecc = './uECC.so'
 
-    libuecc = ll(libuecc)
-    c_uint_array = c_uint8 * 64
-    c_uint_array32 = c_uint8 * 32
-    signature = c_uint_array(0)
-    c_trx = c_uint_array32(0)
-    c_pri = c_uint_array32(0)
-    for i in range(32):
-        c_trx[i] = trx[i]
-        c_pri[i] = pri[i]
-
-    recId = libuecc.uECC_sign_forbc(c_pri, c_trx, signature)
-    if recId == -1:
-        raise CantFindRecId
     bin = bytearray()
     binlen = 65 + 4
-    headerBytes = recId + 27 + 4
+
+    sk = SigningKey.from_string(pri, curve=SECP256k1, hashfunc=hashlib.sha256)
+    g = trx
+    print(g)
+    signature = sk.sign(data=g, hashfunc=hashlib.sha256)
+    print(len(bytearray(signature)))
+    print(signature)
+
+    recId = (ord(bytearray(signature)[0]) - 27) & 3
+
+    c = bytearray(signature)[0] - 27
+    c = c & 4
+    if c:
+        recId += 4
+    recId += 27
+
+    headerBytes = recId
     bin.append(headerBytes)
     bin.extend(bytearray(signature))
     temp = bytearray()
     temp.extend(bin[0:65])
     temp.append(75)
     temp.append(49)
-    c_uint_array67 = c_uint8 * 67
-    c_temp = c_uint_array67(0)
-    for i in range(67):
-        try:
-            c_temp[i] = temp[i]
-        except:
-            print("ddd")
-    try:
-        librmd160 = pkg_resources.resource_filename(__name__, "uECC_rma160.so")
-    except:
-        librmd160 = './rmd160.so'
-    librmd160 = ll(librmd160)
-    c_uint_array20 = c_uint8 * 20
-    p = c_uint_array(0)
-    rmdhash = librmd160.RMD(c_temp, 67, p)
 
-    bin.extend(p[0:19])
+
+    rmd160 = hashlib.new("rmd160")
+    rmd160.update(temp)
+    bin.extend(rmd160.digest())
+
     sig = str(base58.b58encode(bytes(bin)))[2:-1]
     sig = "SIG_K1_" + sig
     return sig

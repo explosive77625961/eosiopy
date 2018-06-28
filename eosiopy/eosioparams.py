@@ -33,7 +33,7 @@ class EosioParams(object):
         self.info_block = NodeNetwork.get_info_block()
 
     def get_expiration(self):
-        return int(time.time() + 30)
+        return int(time.time() + 100)
 
     def packed(self):
         self.params["packed_trx"] = PackedTransaction(self.params, self.info_block["chain_id"])

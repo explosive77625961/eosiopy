@@ -1,6 +1,5 @@
 #define RMDsize 160
 
-#include "rmd160.h"
 
 /********************************************************************\
  *
@@ -24,6 +23,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include "rmd160.h"
+#include "Python.h"
+
 
 /********************************************************************/
 
@@ -309,7 +310,44 @@ void RMD(byte *message , int msglen,unsigned char hash[20])
         hashcode[i+3] = (MDbuf[i>>2] >> 24);
     }
     memcpy(hash,hashcode,20);
-    //return (byte *)hashcode;
+//    return (byte *)hashcode;
 }
 /************************ end of file rmd160.c **********************/
+
+
+// 包装函数。Python调用add方法时传进来的参数在args里
+PyObject* wrap_add(PyObject* self, PyObject* args)
+{
+//    int a, b, result;
+    unsigned char *message = NULL;
+    int msglen = 0;
+    unsigned char hash[20] = {0};
+    // 解析参数
+    if (!PyArg_ParseTuple(args, "yiy#", message, &msglen, hash))
+        return NULL;
+//    result = RMD(a, b);
+    RMD(message, msglen, hash);
+    // 返回PyObject* 类型的参数
+    return Py_BuildValue("i", msglen);
+}
+
+// mymath模块所包含的函数列表
+static PyMethodDef rmd160Methods[] =
+{
+    // 每行一个方法，含义依次为
+    // Python方法名，C方法名，参数值，方法文档
+    {"RMD", wrap_add, METH_VARARGS, "doc: add(a, b) \nreturn a + b"},
+    {NULL, NULL, 0, NULL}
+    // 上面的最后一行相当于结束符
+};
+
+// 初始化模块的方法，自动调用
+// 命名要求为init后加上模块名
+void initrmd160()
+{
+    PyObject* m;
+    // 调用Py_InitModule方法初始化模块mymath，其中模块所具有
+    // 的函数列表由第二个参数提供
+    m = Py_InitModule("rmd160", rmd160Methods);
+}
 
